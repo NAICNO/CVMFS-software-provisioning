@@ -1,0 +1,39 @@
+# This is the procedure we use as basis for EasyBuid instlation
+# parosen composed this for appnodes 
+
+# Installpath will usually be either /opt/software or /storage/software or /cluster/software
+INSTALLPATH=$1
+source /etc/profile.d/z00_lmod.sh
+
+cd $INSTALLPATH/src
+
+# Routine taken from https://docs.easybuild.io/en/latest/Installation.html#installing-easybuild-with-easybuild
+
+# pick installation prefix, and install EasyBuild into it
+export EB_TMPDIR=/tmp/$USER/eb_tmp
+python3 -m pip install --ignore-installed --prefix=$EB_TMPDIR easybuild
+
+# update environment to use this temporary EasyBuild installation
+export PATH=$EB_TMPDIR/bin:$PATH
+export PYTHONPATH=$(/bin/ls -rtd -1 $EB_TMPDIR/lib*/python*/site-packages | tail -1):$PYTHONPATH
+export EB_PYTHON=python3
+
+eb --install-latest-eb-release --prefix $INSTALLPATH/easybuild
+
+#  Create dirs and edit configfile for eb according to our normal setup
+mkdir $INSTALLPATH/easybuild/{tmp,custom}
+eb --confighelp > $INSTALLPATH/easybuild/config.cfg
+sed -i 's|#tmpdir=|'tmpdir="${INSTALLPATH}"/easybuild/tmp'|g' $INSTALLPATH/easybuild/config.cfg
+sed -i 's|#tmp-logdir=|'tmp-logdir="${INSTALLPATH}"/easybuild/tmp'|g' $INSTALLPATH/easybuild/config.cfg
+sed -i 's|#prefix=|'prefix="${INSTALLPATH}"/easybuild'|g' $INSTALLPATH/easybuild/config.cfg
+sed -i 's|#buildpath=|'buildpath=/dev/shm'|g' $INSTALLPATH/easybuild/config.cfg
+
+# job-output is only needed when building as jobs on a cluster
+#sed -i 's|#job-output-dir=|'output-dir="${INSTALLPATH}"/easybuild/job-output'|g' $INSTALLPATH/easybuild/config.cfg
+
+# Clone the easyconfigs devel repo:
+mkdir $INSTALLPATH/easybuild/devel_repo && cd $INSTALLPATH/easybuild/devel_repo
+git clone https://github.com/easybuilders/easybuild-easyconfigs.git
+
+bash $INSTALLPATH/sbin/update_lmod_cache
+
