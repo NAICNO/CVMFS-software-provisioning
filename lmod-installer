@@ -1,0 +1,39 @@
+# This is the file we will use as basis for the LMOD instlation procedure 
+
+
+# Installpath will usually be either /opt/software or /storage/software or /cluster/software
+INSTALLPATH=$1
+VERSION=$2
+
+## Prepare for and install Lmod 
+mkdir -p $INSTALLPATH/lmod/{cache,etc}
+mkdir -p $INSTALLPATH/custom/{modules,software}
+mkdir -p $INSTALLPATH/easybuild/modules/all
+echo "$INSTALLPATH/custom/modules" >> $INSTALLPATH/lmod/.modulespath
+echo "$INSTALLPATH/easybuild/modules/all" >> $INSTALLPATH/lmod/.modulespath
+mkdir -p $INSTALLPATH/src/lmod && cd $INSTALLPATH/src/lmod
+wget https://github.com/TACC/Lmod/archive/refs/tags/$VERSION.tar.gz
+tar xvf $VERSION.tar.gz
+cd Lmod-$VERSION
+
+CONFIGARGS="--prefix=$INSTALLPATH \
+        --with-ModulePathInit=$INSTALLPATH/lmod/.modulespath \
+        --with-cachedLoads=yes \
+        --with-shortTime=86400 \
+        --with-useDotFiles=yes \
+        --with-caseIndependentSorting=yes \
+        --with-exactMatch=yes \
+        --with-spiderCacheDir=$INSTALLPATH/lmod/cache \
+        --with-updateSystemFn=$INSTALLPATH/lmod/cache/system.txt"
+
+./configure $CONFIGARGS
+
+make install
+
+mkdir $INSTALLPATH/sbin
+echo "#!/bin/bash" >> $INSTALLPATH/sbin/update_lmod_cache
+echo "$INSTALLPATH/lmod/lmod/libexec/update_lmod_system_cache_files -d \
+      $INSTALLPATH/lmod/cache -t $INSTALLPATH/lmod/cache/system.txt \
+      $INSTALLPATH/easybuild/modules/all:$INSTALLPATH/custom/modules" \
+      >> $INSTALLPATH/sbin/update_lmod_cache
+chmod +x $INSTALLPATH/sbin/update_lmod_cache
